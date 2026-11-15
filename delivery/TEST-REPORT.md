@@ -56,7 +56,7 @@ Verified with `aapt dump badging`:
 - Settings — all persisted via DataStore; notification permission flow
 
 **Tested on real hardware — install verified (2026-11-15):** the owner
-sideloaded `CHARGERVERSE-1.0.0-release.apk` onto the Moto G54 5G from the
+sideloaded `CHARGEVERSE-1.0.0-release.apk` onto the Moto G54 5G from the
 GitHub release (`v1.0.0`) and confirmed **"Installed successfully"**. Direct
 `adb install` from the laptop was not possible during this session: the
 laptop's USB/adb stack repeatedly wedged (device `ZD222K9PGS` flipped to

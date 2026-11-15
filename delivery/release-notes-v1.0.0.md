@@ -1,6 +1,6 @@
 ﻿First complete build of CHARGEVERSE.
 
-**Install:** download CHARGERVERSE-1.0.0-release.apk (4.9 MB) and sideload it on Android 10+ (allow install from unknown sources). Debug APK included for troubleshooting.
+**Install:** download CHARGEVERSE-1.0.0-release.apk (4.9 MB) and sideload it on Android 10+ (allow install from unknown sources). Debug APK included for troubleshooting.
 
 - Package: com.akshat.chargeverse (release, signed with a locally generated key)
 - Battery dashboard with genuine BatteryManager telemetry (never fabricated)
