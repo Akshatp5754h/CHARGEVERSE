@@ -81,3 +81,14 @@ C:\Users\Akshat\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r deli
    permission needed; survives reboots without persisted URI grants).
 6. **Battery honesty** — every unavailable reading renders as "Not reported";
    power/ETA are computed only from real voltage×current / charge-counter data.
+
+## v2 — CINEMATIC PRODUCTION TRANSFORMATION (branch `feature/cinematic-v2`)
+
+Master plan + defect register (D1–D28): see `docs/V2-PLAN.md`.
+
+- S0 DONE — baseline build green, secrets audit clean (no keystore/properties
+  tracked), branch created from `develop@32bb3de`; `v1.0.0` tag preserved.
+- Active: S1 design system (semantic color tokens, WCAG 2.2 AA contrast,
+  automated palette contrast unit test), then defect batch D1–D15.
+- Release rule: versionCode/versionName bumped only at S12 with the version
+  the release plan determines; `delivery/*V2*` artifacts at S12.
