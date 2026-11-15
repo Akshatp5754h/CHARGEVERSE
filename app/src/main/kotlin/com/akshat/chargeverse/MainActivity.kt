@@ -4,9 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -32,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -69,13 +73,31 @@ fun MainScreen() {
     val backStack by navController.currentBackStackEntryAsState()
     val current = CvDestination.fromRoute(backStack?.destination?.route)
 
+    // §4: 280 ms fade + 8 dp slide-up enter; 200 ms inverse on exit
+    // (and the same treatment for back-navigation pops).
+    val navSlide = with(LocalDensity.current) { 8.dp.roundToPx() }
+
     Box(Modifier.fillMaxSize().background(Void)) {
         NavHost(
             navController = navController,
             startDestination = CvDestination.HOME.route,
             modifier = Modifier.fillMaxSize().background(Void),
-            enterTransition = { fadeIn(tween(280)) },
-            exitTransition = { fadeOut(tween(200)) },
+            enterTransition = {
+                fadeIn(tween(280)) +
+                    slideInVertically(tween(280, easing = FastOutSlowInEasing)) { navSlide }
+            },
+            exitTransition = {
+                fadeOut(tween(200)) +
+                    slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { navSlide }
+            },
+            popEnterTransition = {
+                fadeIn(tween(280)) +
+                    slideInVertically(tween(280, easing = FastOutSlowInEasing)) { navSlide }
+            },
+            popExitTransition = {
+                fadeOut(tween(200)) +
+                    slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { navSlide }
+            },
         ) {
             composable(CvDestination.HOME.route) { HomeScreen(onNavigate = { navController.navigate(it.route) }) }
             composable(CvDestination.ANIMATIONS.route) { AnimationsScreen() }
