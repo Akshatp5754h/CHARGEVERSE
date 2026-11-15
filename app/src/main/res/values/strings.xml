@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CHARGEVERSE</string>
+
+    <!-- Notification channels -->
+    <string name="channel_charging_name">Charging experience</string>
+    <string name="channel_charging_desc">Full-screen charging animation and sound controls</string>
+    <string name="channel_alerts_name">Battery alerts</string>
+    <string name="channel_alerts_desc">Full battery and low battery notifications</string>
+
+    <!-- Charging notification -->
+    <string name="charging_notif_title">Charging — %1$s</string>
+    <string name="charging_notif_text">Tap to open the charging experience</string>
+    <string name="notif_action_open">Open</string>
+    <string name="notif_action_stop">Stop</string>
+
+    <!-- Charging screen -->
+    <string name="charging_time_to_full">Full in %1$s</string>
+    <string name="charging_source_wired">Wired</string>
+    <string name="charging_source_wireless">Wireless</string>
+    <string name="charging_done">Fully charged</string>
+</resources>

@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local machine configuration (never commit)
+local.properties
+keystore.properties
+*.jks
+*.keystore
+
+# Logs and delivery intermediates
+*.log
+delivery/build-logs/*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
