@@ -20,6 +20,10 @@ keystore.properties
 *.log
 delivery/build-logs/*.tmp
 
+# Generated content (built locally, hosted as release assets — never in git)
+tools/content-gen/test/
+tools/content-gen/out/
+
 # OS
 Thumbs.db
 .DS_Store
