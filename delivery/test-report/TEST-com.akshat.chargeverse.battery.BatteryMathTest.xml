@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.akshat.chargeverse.battery.BatteryMathTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-15T08:32:23.433Z" hostname="GODGAMING" time="0.017">
+  <properties/>
+  <testcase name="transition detection flips only on change" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.003"/>
+  <testcase name="eta is computed from charge counter and current" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.002"/>
+  <testcase name="power is null when not charging" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.001"/>
+  <testcase name="charging power is computed from real voltage and current" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.0"/>
+  <testcase name="power is null when readings are missing or invalid" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.0"/>
+  <testcase name="eta is null when data unusable" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.0"/>
+  <testcase name="eta is zero when full" classname="com.akshat.chargeverse.battery.BatteryMathTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

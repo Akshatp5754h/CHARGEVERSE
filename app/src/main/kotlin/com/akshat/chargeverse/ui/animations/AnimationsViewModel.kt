@@ -20,6 +20,8 @@ data class AnimationsUiState(
     val category: AnimationCategory? = null,
     val importing: Boolean = false,
     val error: String? = null,
+    /** SAF uri awaiting a category decision (import dialog). */
+    val pendingUri: android.net.Uri? = null,
 )
 
 class AnimationsViewModel : ViewModel() {
@@ -30,18 +32,21 @@ class AnimationsViewModel : ViewModel() {
     private val selectedCategory = MutableStateFlow<AnimationCategory?>(null)
     private val importing = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
+    private val pendingUri = MutableStateFlow<android.net.Uri?>(null)
 
     val ui: StateFlow<AnimationsUiState> = combine(
         db.mediaItemDao().observeAll(),
         selectedCategory,
         importing,
         error,
-    ) { items, category, importing, error ->
+        pendingUri,
+    ) { items, category, importing, error, pending ->
         AnimationsUiState(
             items = if (category == null) items else items.filter { it.category == category },
             category = category,
             importing = importing,
             error = error,
+            pendingUri = pending,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AnimationsUiState())
 
@@ -49,19 +54,28 @@ class AnimationsViewModel : ViewModel() {
         selectedCategory.value = category
     }
 
-    /** Imports a picked SAF uri into private storage and registers it in Room. */
-    fun import(uri: android.net.Uri) = viewModelScope.launch {
+    fun stageImport(uri: android.net.Uri) {
+        pendingUri.value = uri
+    }
+
+    fun cancelImport() {
+        pendingUri.value = null
+    }
+
+    /** Imports the staged uri into private storage under the chosen category. */
+    fun import(uri: android.net.Uri, category: AnimationCategory) = viewModelScope.launch {
+        pendingUri.value = null
         importing.value = true
         error.value = null
         withContext(Dispatchers.IO) {
             runCatching {
-                val resolved = resolver.resolveAndCopy(uri, AnimationCategory.ABSTRACT)
+                val resolved = resolver.resolveAndCopy(uri, category)
                 db.mediaItemDao().insert(
                     MediaItemEntity(
                         type = resolved.type,
                         uri = resolved.uri,
                         title = resolved.title,
-                        category = AnimationCategory.ABSTRACT,
+                        category = category,
                         addedAtMs = System.currentTimeMillis(),
                         sizeBytes = resolved.sizeBytes,
                         isBuiltIn = false,

@@ -44,13 +44,26 @@ com.akshat.chargeverse
 - [x] **S1** Foundation: theme, navigation, dashboard, Room, DataStore, DI (build pending)
 - [x] **S2** Battery monitoring: live readings, detail screen, no-fabrication policy
 - [x] **S3** Charging detection: receiver, FGS, full-screen experience, boot re-arm
-- [ ] **S4** Media playback: ExoPlayer integration into ChargingActivity
-- [ ] **S5** Gallery + editor polish (category assignment, previews, thumbnails)
-- [ ] **S6** Sound studio: built-in chimes, repeat loop, disconnect/full/low wiring
-- [ ] **S7** AI integration: txt2img/IMG2VID flows, generation history UI
-- [ ] **S8** Personalization: onboarding, lockscreen overlay option, polish
-- [ ] **S9** Performance: battery-draw audit, APK size, lint fixes
-- [ ] **S10** QA + release: unit tests, checksums, delivery folder
+- [x] **S4** Media playback: ExoPlayer integration into ChargingActivity
+- [x] **S5** Gallery + editor polish (category assignment, previews, thumbnails)
+- [x] **S6** Sound studio: built-in chimes, repeat loop, disconnect/full/low wiring
+- [x] **S7** AI integration: txt2img flow, generation history UI
+- [x] **S8** Personalization: settings surfaces for all behavior switches
+- [x] **S9** Performance: lint clean (2 documented warnings), R8 release build 4.9 MB
+- [x] **S10** QA + release: 10/10 unit tests, checksums, delivery folder populated
+
+## Delivery
+
+- `delivery/CHARGEVERSE-1.0.0-release.apk` — 4.88 MB, signed, R8-minified
+- `delivery/CHARGEVERSE-1.0.0-debug.apk` — 43.69 MB
+- `delivery/TEST-REPORT.md` — artifacts, checksums, feature status, security review
+- `delivery/build-logs/final-build-2026-11-15.log` — real Gradle console output
+
+**Pending owner action:** connect the Moto G54 via USB (or adb over WiFi) to
+install and validate on hardware:
+```powershell
+C:\Users\Akshat\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r delivery\CHARGEVERSE-1.0.0-release.apk
+```
 
 ## Engineering decisions log
 

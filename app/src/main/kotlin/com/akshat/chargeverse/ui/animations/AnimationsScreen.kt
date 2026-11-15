@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,7 +51,7 @@ fun AnimationsScreen(viewModel: AnimationsViewModel = viewModel()) {
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let { viewModel.import(it) }
+        uri?.let { viewModel.stageImport(it) }
     }
 
     Column(Modifier.fillMaxSize().padding(top = 56.dp)) {
@@ -104,6 +105,15 @@ fun AnimationsScreen(viewModel: AnimationsViewModel = viewModel()) {
             )
         }
 
+        // Category chooser for a freshly picked file
+        val pending = state.pendingUri
+        if (pending != null) {
+            CategoryChooserDialog(
+                onPick = { viewModel.import(pending, it) },
+                onCancel = { viewModel.cancelImport() },
+            )
+        }
+
         if (state.items.isEmpty()) {
             EmptyState(
                 iconRes = R.drawable.ic_util_sparkle,
@@ -145,6 +155,53 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
         )
     }
 }
+
+@Composable
+private fun CategoryChooserDialog(
+    onPick: (AnimationCategory) -> Unit,
+    onCancel: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Choose a category") },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    "Where should this animation live in your library?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DimText,
+                )
+                AnimationCategory.entries.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { cat ->
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .background(GlassFill, MaterialTheme.shapes.small)
+                                    .clickable { onPick(cat) }
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    cat.name.lowercase().replace('_', ' '),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = NeonBlue,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onCancel) { Text("Cancel") }
+        },
+    )
+}
+
+
 
 @Composable
 private fun MediaTile(item: com.akshat.chargeverse.data.db.MediaItemEntity, onDelete: () -> Unit) {

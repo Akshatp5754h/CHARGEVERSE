@@ -3,6 +3,7 @@ package com.akshat.chargeverse.ui.studio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,10 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -26,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.akshat.chargeverse.R
@@ -34,6 +34,9 @@ import com.akshat.chargeverse.core.theme.DimText
 import com.akshat.chargeverse.core.theme.GlassFill
 import com.akshat.chargeverse.core.theme.NeonBlue
 import com.akshat.chargeverse.data.db.AnimationProfileEntity
+import com.akshat.chargeverse.data.db.MediaItemEntity
+import com.akshat.chargeverse.ui.ai.AiHistoryList
+import com.akshat.chargeverse.ui.ai.AiStudioSection
 import com.akshat.chargeverse.ui.components.CvIcon
 import com.akshat.chargeverse.ui.components.EmptyState
 import com.akshat.chargeverse.ui.components.GlassCard
@@ -43,82 +46,99 @@ import com.akshat.chargeverse.ui.components.SectionTitle
 fun StudioScreen(viewModel: StudioViewModel = viewModel()) {
     val state by viewModel.ui.collectAsState()
 
-    Column(Modifier.fillMaxSize().padding(top = 56.dp)) {
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            Text("Studio", style = MaterialTheme.typography.headlineMedium)
+    val editing = state.editing
+    if (editing != null) {
+        ProfileEditor(
+            profile = editing,
+            onClose = { viewModel.openEditor(null) },
+            onSave = viewModel::saveEdits,
+        )
+        return
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 20.dp, end = 20.dp, top = 56.dp, bottom = 140.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Column {
+                Text("Studio", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    "Build and tune charging profiles from your animations",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DimText,
+                )
+            }
+        }
+
+        item { SectionTitle("Profiles (${state.profiles.size})") }
+
+        if (state.profiles.isEmpty()) {
+            item {
+                EmptyState(
+                    iconRes = R.drawable.ic_nav_studio,
+                    title = "No profiles yet",
+                    body = "Pick an animation below and turn it into a profile.",
+                )
+            }
+        } else {
+            items(state.profiles, key = { "p${it.id}" }) { profile ->
+                ProfileRow(
+                    profile = profile,
+                    onActivate = { viewModel.activate(profile) },
+                    onEdit = { viewModel.openEditor(profile) },
+                    onDelete = { viewModel.delete(profile) },
+                )
+            }
+        }
+
+        // Start from an animation
+        item { SectionTitle("Start from an animation (${state.media.size})") }
+        if (state.media.isEmpty()) {
+            item {
+                Text(
+                    "Import animations in the Animations tab first.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DimText,
+                )
+            }
+        } else {
+            items(state.media, key = { "m${it.id}" }) { media ->
+                MediaSourceRow(media) { viewModel.createProfile(media) }
+            }
+        }
+
+        // Optional AI studio
+        item {
+            Spacer(Modifier.height(12.dp))
+            AiStudioSection()
+        }
+        item { AiHistoryList() }
+    }
+}
+
+@Composable
+private fun MediaSourceRow(media: MediaItemEntity, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(GlassFill, MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CvIcon(R.drawable.ic_nav_animations, NeonBlue, Modifier.height(20.dp))
+        Spacer(Modifier.padding(6.dp))
+        Column {
+            Text(media.title, style = MaterialTheme.typography.titleMedium)
             Text(
-                "Build and tune charging profiles from your animations",
-                style = MaterialTheme.typography.bodyMedium,
+                media.type.name.lowercase(),
+                style = MaterialTheme.typography.labelMedium,
                 color = DimText,
             )
-        }
-        Spacer(Modifier.height(18.dp))
-
-        val editing = state.editing
-        if (editing != null) {
-            ProfileEditor(
-                profile = editing,
-                onClose = { viewModel.openEditor(null) },
-                onSave = viewModel::saveEdits,
-            )
-            return@Column
-        }
-
-        SectionTitle("Profiles", Modifier.padding(horizontal = 24.dp))
-        if (state.profiles.isEmpty()) {
-            EmptyState(
-                iconRes = R.drawable.ic_nav_studio,
-                title = "No profiles yet",
-                body = "Pick an animation below and turn it into a profile.",
-            )
-        } else {
-            LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 20.dp, end = 20.dp, top = 4.dp, bottom = 140.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(state.profiles, key = { it.id }) { profile ->
-                    ProfileRow(
-                        profile = profile,
-                        onActivate = { viewModel.activate(profile) },
-                        onEdit = { viewModel.openEditor(profile) },
-                        onDelete = { viewModel.delete(profile) },
-                    )
-                }
-            }
-        }
-
-        if (state.profiles.isEmpty()) {
-            SectionTitle("Start from an animation", Modifier.padding(horizontal = 24.dp))
-            LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 20.dp, end = 20.dp, top = 4.dp, bottom = 140.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(state.media, key = { it.id }) { media ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(GlassFill, MaterialTheme.shapes.medium)
-                            .clickable { viewModel.createProfile(media) }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CvIcon(R.drawable.ic_nav_animations, NeonBlue, Modifier.height(20.dp))
-                        Spacer(Modifier.padding(6.dp))
-                        Column {
-                            Text(media.title, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                media.type.name.lowercase(),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = DimText,
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -176,6 +196,7 @@ private fun ProfileEditor(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
+            .padding(top = 56.dp, bottom = 140.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CvIcon(R.drawable.ic_util_close, DimText, Modifier.clickable(onClick = onClose))
@@ -214,7 +235,6 @@ private fun ProfileEditor(
                 Text("Save profile")
             }
         }
-        Spacer(Modifier.height(140.dp))
     }
 }
 

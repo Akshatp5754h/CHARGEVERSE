@@ -35,14 +35,14 @@ class ChargingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = buildNotification()
         runCatching {
-            if (Build.VERSION.SDK_INT >= 29) {
-                startForeground(
-                    NOTIF_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-                )
-            } else {
-                startForeground(NOTIF_ID, notification)
+            when {
+                Build.VERSION.SDK_INT >= 34 ->
+                    startForeground(
+                        NOTIF_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                    )
+                else -> startForeground(NOTIF_ID, notification)
             }
         }.onFailure { Log.e(TAG, "startForeground failed", it) }
 

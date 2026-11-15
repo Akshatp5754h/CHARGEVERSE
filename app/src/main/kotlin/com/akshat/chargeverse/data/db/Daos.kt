@@ -108,6 +108,9 @@ interface AiHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: AiHistoryEntity): Long
 
+    @Query("UPDATE ai_history SET status = :status, outputUri = :outputUri, errorMessage = :error WHERE id = :id")
+    suspend fun updateResult(id: Long, status: String, outputUri: String?, error: String?)
+
     @Query("DELETE FROM ai_history WHERE id = :id")
     suspend fun delete(id: Long)
 }
