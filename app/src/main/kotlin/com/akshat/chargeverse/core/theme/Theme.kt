@@ -5,28 +5,69 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 private val DarkScheme = darkColorScheme(
     primary = NeonBlue,
-    onPrimary = Void,
+    onPrimary = OnAccent,
     secondary = NeonPurple,
-    onSecondary = Void,
+    onSecondary = OnAccent,
     tertiary = NeonMagenta,
     background = Void,
-    onBackground = BrightText,
+    onBackground = TextPrimary,
     surface = Obsidian,
-    onSurface = BrightText,
+    onSurface = TextPrimary,
     surfaceVariant = Surface,
-    onSurfaceVariant = DimText,
+    onSurfaceVariant = TextSecondary,
     outline = OutlineDim,
     error = LowRed,
     surfaceContainer = Ink,
-    surfaceContainerHigh = Surface,
+    surfaceContainerHigh = Slate,
     surfaceContainerHighest = SurfaceHigh,
     surfaceContainerLow = Ink,
     surfaceContainerLowest = Void,
 )
+
+/**
+ * Semantic tokens beyond Material's scheme: the accessible text ramp, the
+ * primary-button gradient (both ends keep >= 4.5:1 with [OnAccent] content)
+ * and state colors. Screens must consume these instead of hardcoding
+ * Color.Black / Color.White.
+ */
+@Immutable
+data class CvColors(
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val textTertiary: Color,
+    val textDisabled: Color,
+    val btnPrimaryStart: Color,
+    val btnPrimaryEnd: Color,
+    val onAccent: Color,
+    val success: Color,
+    val warning: Color,
+    val error: Color,
+)
+
+val LocalCvColors = staticCompositionLocalOf {
+    CvColors(
+        textPrimary = TextPrimary,
+        textSecondary = TextSecondary,
+        textTertiary = TextTertiary,
+        textDisabled = TextDisabled,
+        btnPrimaryStart = BtnPrimaryStart,
+        btnPrimaryEnd = BtnPrimaryEnd,
+        onAccent = OnAccent,
+        success = FullGreen,
+        warning = WarnAmber,
+        error = LowRed,
+    )
+}
+
+/** Convenience accessor: `MaterialTheme.cvColors.textSecondary`. */
+val MaterialTheme.cvColors: CvColors
+    @Composable get() = LocalCvColors.current
 
 val CvShapes = Shapes(
     extraSmall = RoundedCornerShape(8),

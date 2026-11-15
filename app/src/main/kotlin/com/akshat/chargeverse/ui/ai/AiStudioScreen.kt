@@ -21,14 +21,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.akshat.chargeverse.R
 import com.akshat.chargeverse.core.theme.DimText
 import com.akshat.chargeverse.core.theme.GlassFill
 import com.akshat.chargeverse.core.theme.NeonBlue
+import com.akshat.chargeverse.core.theme.BtnPrimaryEnd
 import com.akshat.chargeverse.core.theme.NeonPurple
+import com.akshat.chargeverse.core.theme.Void
 import com.akshat.chargeverse.ui.components.CvIcon
 import com.akshat.chargeverse.ui.components.GlassCard
 import com.akshat.chargeverse.ui.components.SectionTitle
@@ -102,7 +103,7 @@ fun AiStudioSection(viewModel: AiViewModel = viewModel()) {
                     Text(
                         if (state.generating) "Generating…" else "Generate image",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color.Black,
+                        color = Void,
                     )
                 }
                 Spacer(Modifier.weight(1f))
@@ -116,8 +117,10 @@ fun AiStudioSection(viewModel: AiViewModel = viewModel()) {
 }
 
 private object Brush {
+    // BtnPrimaryEnd (#8B72FF) keeps the Void label >= 4.5:1 at both ends;
+    // v1's NeonPurple end only reached 4.0:1 with black text.
     val gradient = androidx.compose.ui.graphics.Brush.linearGradient(
-        listOf(NeonBlue, NeonPurple)
+        listOf(NeonBlue, BtnPrimaryEnd)
     )
 }
 

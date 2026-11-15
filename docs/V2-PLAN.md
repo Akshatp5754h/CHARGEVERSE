@@ -6,7 +6,8 @@ Branch: `feature/cinematic-v2` · Base: `develop@32bb3de` · Tag preserved: `v1.
 | # | Milestone | Status |
 |---|---|---|
 | S0 | Baseline & safety audit | ✅ DONE — build green, secrets audit clean, branch created |
-| S1 | Design system, typography & contrast repair (release blocker) | IN PROGRESS |
+| S1 | Design system, typography & contrast repair (release blocker) | ✅ DONE — semantic tokens, contrast gate test, D23/D24 fixes |
+| DEF | Functional defect batch D1–D21 | ✅ DONE — `3e20180` (Room v2 migration, roles, GIF/WebP, arming, service hardening, confirm dialogs) |
 | S2 | Cinematic home & navigation redesign | queued |
 | S3 | Animation gallery & playback redesign | queued |
 | S4 | Full-length charging media experience | queued |

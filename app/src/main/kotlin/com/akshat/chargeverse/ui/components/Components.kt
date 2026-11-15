@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.akshat.chargeverse.core.theme.TextPrimary
 import com.akshat.chargeverse.core.theme.GlassFill
 import com.akshat.chargeverse.core.theme.GlassStroke
 import com.akshat.chargeverse.core.theme.NeonBlue
@@ -93,7 +94,7 @@ fun StatRow(label: String, value: String, modifier: Modifier = Modifier) {
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = DimText)
         Spacer(Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.titleMedium, color = Color.White)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
     }
 }
 
