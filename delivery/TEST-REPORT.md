@@ -55,10 +55,18 @@ Verified with `aapt dump badging`:
   auto-add to library, generation history); app fully functional without AI
 - Settings — all persisted via DataStore; notification permission flow
 
-**Tested on real hardware: NOT YET** — no Android device was connected to this
-laptop during development (`adb devices` empty). On-device validation on the
-Moto G54 5G (Android 13+) is the next required step: install, plug a charger,
-verify the experience, sounds and automation.
+**Tested on real hardware — install verified (2026-11-15):** the owner
+sideloaded `CHARGERVERSE-1.0.0-release.apk` onto the Moto G54 5G from the
+GitHub release (`v1.0.0`) and confirmed **"Installed successfully"**. Direct
+`adb install` from the laptop was not possible during this session: the
+laptop's USB/adb stack repeatedly wedged (device `ZD222K9PGS` flipped to
+`offline`, then stopped enumerating), so automated on-device instrumentation
+was skipped — this is an environment limitation, not an app failure.
+
+Remaining hardware validation (owner, any time): plug in a charger to verify
+the full-screen experience, sound playback, and automation rules; check the
+battery screen shows real readings ("Not reported" for anything the device
+does not expose); optionally point the AI studio at the local ComfyUI.
 
 **Known limitations:**
 - GIF animation frames render via Coil; animated WebP playback depends on
