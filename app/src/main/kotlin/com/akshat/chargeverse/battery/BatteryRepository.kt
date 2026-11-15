@@ -24,6 +24,7 @@ class BatteryRepository(private val reader: BatteryReader) {
     val events: SharedFlow<ChargingEvent> = _events.asSharedFlow()
 
     private var wasCharging = _reading.value.isCharging
+    private var wasFull = _reading.value.isFull
     private var lowAlerted = false
 
     fun collectInto(flow: Flow<BatteryReading>): Flow<BatteryReading> = flow
@@ -39,7 +40,8 @@ class BatteryRepository(private val reader: BatteryReader) {
                 _events.tryEmit(if (reading.isCharging) ChargingEvent.CONNECTED else ChargingEvent.DISCONNECTED)
                 wasCharging = reading.isCharging
             }
-            if (reading.isFull) _events.tryEmit(ChargingEvent.FULL)
+            if (reading.isFull && !wasFull) _events.tryEmit(ChargingEvent.FULL)
+            wasFull = reading.isFull
             if (reading.levelPercent <= LOW_THRESHOLD && !reading.isCharging && !lowAlerted) {
                 lowAlerted = true
                 _events.tryEmit(ChargingEvent.LOW)

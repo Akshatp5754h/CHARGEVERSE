@@ -55,6 +55,16 @@ class AutomationEngine(
             com.akshat.chargeverse.battery.ChargingEvent.LOW -> AutomationTrigger.LOW_BATTERY
         }
         executeMatching(trigger, triggerValue = 0)
+
+        // Built-in alert behavior, governed by settings (not rules):
+        val s = settings.current()
+        when (event) {
+            com.akshat.chargeverse.battery.ChargingEvent.FULL ->
+                if (s.fullBatteryAlertEnabled) playRoleSound(SoundRole.FULL)
+            com.akshat.chargeverse.battery.ChargingEvent.LOW ->
+                if (s.lowBatteryAlertEnabled) playRoleSound(SoundRole.LOW)
+            else -> Unit
+        }
     }
 
     /** Public entry for WorkManager sweeps (percentage rules without live flow). */

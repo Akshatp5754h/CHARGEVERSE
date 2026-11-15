@@ -47,11 +47,31 @@ class ChargingService : Service() {
         }.onFailure { Log.e(TAG, "startForeground failed", it) }
 
         // Update the notification as battery changes; stop when unplugged/full handled by receiver.
+        var loopStarted = false
         ServiceLocator.battery.reading
             .onEach { reading ->
+                val s = runCatching { ServiceLocator.settings.current() }.getOrNull() ?: return@onEach
+                ServiceLocator.soundEngine.muted = s.masterMuted
+                ServiceLocator.soundEngine.volume = s.soundVolume
+
                 if (!reading.isCharging) {
+                    if (loopStarted) {
+                        ServiceLocator.soundEngine.stop()
+                        loopStarted = false
+                    }
                     stopSelf()
-                } else if (reading.levelPercent >= 0) {
+                    return@onEach
+                }
+
+                // Charging sound loop while charging, if enabled.
+                if (s.repeatChargingSound && s.connectSoundId > 0 && !loopStarted) {
+                    ServiceLocator.db.soundItemDao().byId(s.connectSoundId)?.let { item ->
+                        loopStarted = true
+                        ServiceLocator.soundEngine.play(android.net.Uri.parse(item.uri), loop = true)
+                    }
+                }
+
+                if (reading.levelPercent >= 0) {
                     updateNotification(reading.levelPercent)
                 }
             }

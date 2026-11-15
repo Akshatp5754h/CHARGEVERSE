@@ -1,6 +1,8 @@
 package com.akshat.chargeverse.charging
 
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.RepeatMode
@@ -15,41 +17,48 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
 import com.akshat.chargeverse.battery.ChargingEvent
 import com.akshat.chargeverse.core.theme.ElectricGreen
 import com.akshat.chargeverse.core.theme.NeonBlue
 import com.akshat.chargeverse.core.theme.NeonPurple
-import com.akshat.chargeverse.core.theme.Void
 import com.akshat.chargeverse.core.theme.batteryAccent
+import com.akshat.chargeverse.data.db.MediaType
 import com.akshat.chargeverse.ui.charging.ChargingViewModel
 
 /**
  * Full-screen charging experience shown while plugged in (also over the lock
- * screen when the system launches it from the full-screen intent). Native
- * pulsing charge animation; user media playback is layered in Sprint 4.
+ * screen when the system launches it from the full-screen intent). Plays the
+ * active profile's media (video/GIF/WebP/image) with the profile's transforms,
+ * falling back to the native pulsing charge animation when no profile exists.
  */
 class ChargingActivity : ComponentActivity() {
 
@@ -76,8 +85,137 @@ class ChargingActivity : ComponentActivity() {
     private fun ChargingScreen() {
         val vm: ChargingViewModel = viewModel()
         val reading by vm.state.collectAsState()
-        val accent = batteryAccent(reading?.levelPercent?.coerceIn(0, 100) ?: 0)
+        val profile by vm.profile.collectAsState()
+        val media by vm.media.collectAsState()
+        val sessionSettings by vm.sessionSettings.collectAsState()
 
+        val percent = reading?.levelPercent ?: -1
+        val accent = batteryAccent(percent.coerceIn(0, 100))
+
+        // Media engine (video) lives as long as this screen.
+        val engine = remember { ChargingMediaEngine(this) }
+        DisposableEffect(Unit) {
+            onDispose { engine.release() }
+        }
+
+        LaunchedEffect(media, profile) {
+            val m = media
+            if (m != null && profile != null) {
+                engine.looping = sessionSettings.loopAnimation
+                engine.speed = profile?.playbackSpeed ?: 1f
+                val isVideo = engine.prepareVideo(m)
+                if (isVideo) engine.play()
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            vm.events.collect { event ->
+                if (event == ChargingEvent.DISCONNECTED) finish()
+            }
+        }
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color((profile?.backgroundHex ?: 0xFF050510).toInt())),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Layer 1: profile media (video / animated / still)
+            ProfileMediaLayer(media = media, profile = profile, engine = engine)
+
+            // Layer 2: battery overlay (ring + percent), only if profile wants it
+            if (profile?.showBatteryOverlay != false) {
+                BatteryOverlay(
+                    percent = percent,
+                    accent = accent,
+                    showPercent = profile?.showPercent != false,
+                    isFull = reading?.isFull == true,
+                    mediaPresent = media != null,
+                )
+            }
+
+            // Layer 3: text overlay
+            profile?.textOverlay?.takeIf { it.isNotBlank() }?.let { text ->
+                Text(
+                    text,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            translationY = (profile?.offsetY ?: 0f) * -100f
+                        }
+                        .padding(0.dp, 0.dp, 0.dp, 120.dp)
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun ProfileMediaLayer(
+        media: com.akshat.chargeverse.data.db.MediaItemEntity?,
+        profile: com.akshat.chargeverse.data.db.AnimationProfileEntity?,
+        engine: ChargingMediaEngine,
+    ) {
+        if (media == null) return
+        val scale = profile?.scale ?: 1f
+        val offsetX = profile?.offsetX ?: 0f
+        val offsetY = profile?.offsetY ?: 0f
+
+        val transform = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = offsetX * size.width
+                translationY = offsetY * size.height
+            }
+
+        when (media.type) {
+            MediaType.VIDEO -> {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                            useController = false
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            player = engine.player
+                        }
+                    },
+                    modifier = transform,
+                )
+            }
+            MediaType.GIF, MediaType.WEBP, MediaType.IMAGE -> {
+                AsyncImage(
+                    model = media.uri,
+                    contentDescription = media.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = transform,
+                )
+            }
+            MediaType.LOTTIE -> {
+                // Lottie composition support arrives with Sprint 7 asset import.
+                AsyncImage(
+                    model = media.uri,
+                    contentDescription = media.title,
+                    contentScale = ContentScale.Fit,
+                    modifier = transform,
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun BatteryOverlay(
+        percent: Int,
+        accent: Color,
+        showPercent: Boolean,
+        isFull: Boolean,
+        mediaPresent: Boolean,
+    ) {
         val pulse = rememberInfiniteTransition(label = "pulse")
         val ringScale by pulse.animateFloat(
             initialValue = 0.94f,
@@ -92,96 +230,67 @@ class ChargingActivity : ComponentActivity() {
             label = "glow",
         )
 
-        Box(Modifier.fillMaxSize().background(Void), contentAlignment = Alignment.Center) {
-            PulsingChargeCanvas(
-                percent = reading?.levelPercent ?: -1,
-                ringScale = ringScale,
-                glowAlpha = glowAlpha,
-                accent = accent,
-            )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Canvas(
+                Modifier
+                    .size(if (mediaPresent) 200.dp else 320.dp)
+            ) {
+                val center = Offset(size.width / 2, size.height / 2)
+                val radius = (size.minDimension / 2f - 24f) * ringScale
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(accent.copy(alpha = glowAlpha * 0.4f), Color.Transparent),
+                        center = center,
+                        radius = radius * 1.25f,
+                    ),
+                    radius = radius * 1.25f,
+                    center = center,
+                )
+                drawCircle(
+                    color = Color(0x33FFFFFF),
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = 14f, cap = StrokeCap.Round),
+                )
+                if (percent >= 0) {
+                    drawArc(
+                        brush = Brush.sweepGradient(listOf(NeonBlue, accent, NeonPurple), center = center),
+                        startAngle = -90f,
+                        sweepAngle = (percent.coerceIn(0, 100) / 100f) * 360f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 14f, cap = StrokeCap.Round),
+                    )
+                }
+                val angle = ((ringScale - 0.94f) / 0.12f) * Math.PI
+                drawCircle(
+                    color = ElectricGreen.copy(alpha = glowAlpha),
+                    radius = 7f,
+                    center = Offset(
+                        center.x + radius * kotlin.math.cos(angle).toFloat(),
+                        center.y + radius * kotlin.math.sin(angle).toFloat(),
+                    ),
+                )
+            }
+            if (showPercent) {
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    "${reading?.levelPercent?.takeIf { it >= 0 } ?: "—"}%",
-                    fontSize = 84.sp,
+                    "${if (percent >= 0) percent else "—"}%",
+                    fontSize = if (mediaPresent) 44.sp else 72.sp,
                     fontWeight = FontWeight.Black,
                     color = Color.White,
                 )
                 Text(
                     when {
-                        reading?.isFull == true -> "Fully charged"
-                        reading?.isCharging == true -> "Charging"
-                        else -> "Charger disconnected"
+                        percent < 0 -> ""
+                        isFull -> "Fully charged"
+                        else -> ""
                     },
                     style = MaterialTheme.typography.titleMedium,
                     color = accent,
                 )
-                reading?.minutesToFull?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Full in ${it / 60}h ${it % 60}m",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF8A8AB0),
-                    )
-                }
             }
-        }
-
-        // Exit when unplugged or full after a delay.
-        LaunchedEffect(Unit) {
-            vm.events.collect { event ->
-                if (event == ChargingEvent.DISCONNECTED) finish()
-            }
-        }
-    }
-
-    @Composable
-    private fun PulsingChargeCanvas(
-        percent: Int,
-        ringScale: Float,
-        glowAlpha: Float,
-        accent: Color,
-    ) {
-        Canvas(Modifier.size(320.dp)) {
-            val center = Offset(size.width / 2, size.height / 2)
-            val radius = (size.minDimension / 2f - 24f) * ringScale
-
-            // Glow
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(accent.copy(alpha = glowAlpha * 0.5f), Color.Transparent),
-                    center = center,
-                    radius = radius * 1.25f,
-                ),
-                radius = radius * 1.25f,
-                center = center,
-            )
-            // Track
-            drawCircle(
-                color = Color(0x22FFFFFF),
-                radius = radius,
-                center = center,
-                style = Stroke(width = 14f, cap = StrokeCap.Round),
-            )
-            // Progress arc
-            drawArc(
-                brush = Brush.sweepGradient(listOf(NeonBlue, accent, NeonPurple), center = center),
-                startAngle = -90f,
-                sweepAngle = ((percent.coerceIn(0, 100)) / 100f) * 360f,
-                useCenter = false,
-                topLeft = Offset(center.x - radius, center.y - radius),
-                size = Size(radius * 2f, radius * 2f),
-                style = Stroke(width = 14f, cap = StrokeCap.Round),
-            )
-            // Orbiting spark
-            val angle = ((ringScale - 0.94f) / 0.12f) * Math.PI
-            drawCircle(
-                color = ElectricGreen.copy(alpha = glowAlpha),
-                radius = 7f,
-                center = Offset(
-                    center.x + radius * kotlin.math.cos(angle).toFloat(),
-                    center.y + radius * kotlin.math.sin(angle).toFloat(),
-                ),
-            )
         }
     }
 }

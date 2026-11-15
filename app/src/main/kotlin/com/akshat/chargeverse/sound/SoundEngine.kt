@@ -35,8 +35,9 @@ class SoundEngine(private val context: Context) {
             )
             when (uri.scheme) {
                 "asset" -> {
-                    val name = uri.pathSegments.firstOrNull() ?: throw IllegalArgumentException("bad asset uri")
-                    val fd = context.assets.openFd(name)
+                    val assetPath = uri.pathSegments.joinToString("/")
+                    if (assetPath.isEmpty()) throw IllegalArgumentException("bad asset uri")
+                    val fd = context.assets.openFd(assetPath)
                     p.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
                     fd.close()
                 }
