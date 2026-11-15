@@ -27,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,11 +45,13 @@ import com.akshat.chargeverse.core.theme.NeonBlue
 import com.akshat.chargeverse.data.db.AnimationCategory
 import com.akshat.chargeverse.data.db.MediaType
 import com.akshat.chargeverse.ui.components.CvIcon
+import com.akshat.chargeverse.ui.components.ConfirmDeleteDialog
 import com.akshat.chargeverse.ui.components.EmptyState
 
 @Composable
 fun AnimationsScreen(viewModel: AnimationsViewModel = viewModel()) {
     val state by viewModel.ui.collectAsState()
+    var deleteCandidate by remember { mutableStateOf<com.akshat.chargeverse.data.db.MediaItemEntity?>(null) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -130,10 +135,23 @@ fun AnimationsScreen(viewModel: AnimationsViewModel = viewModel()) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(state.items, key = { it.id }) { item ->
-                    MediaTile(item) { viewModel.delete(item) }
+                    MediaTile(item) { deleteCandidate = item }
                 }
             }
         }
+    }
+
+    // D9: deleting an animation also removes its imported file — confirm first.
+    deleteCandidate?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Delete animation",
+            message = "“${item.title}” and its imported file will be removed from your library. Charging profiles that use it are deleted too.",
+            onConfirm = {
+                viewModel.delete(item)
+                deleteCandidate = null
+            },
+            onDismiss = { deleteCandidate = null },
+        )
     }
 }
 

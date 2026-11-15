@@ -114,13 +114,38 @@ class MediaResolver(private val context: Context) {
     /** Total bytes used by imported media (for storage stats in settings). */
     fun totalBytesUsed(): Long = mediaDir().walkTopDown().filter { it.isFile }.sumOf { it.length() }
 
-    /** Used by the audio importer (Sprint: sound studio). */
-    fun resolveAudio(source: Uri, name: String): File {
+    /** Used by the audio importer (sound studio). */
+    data class ResolvedAudio(
+        /** Private copy, named snd_<uuid><source extension>. */
+        val file: File,
+        /** Original file name without extension, for display. */
+        val displayName: String,
+    )
+
+    /** Original file name reported by the content provider (SAF). */
+    fun queryDisplayName(source: Uri): String? =
+        context.contentResolver
+            .query(source, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+
+    /**
+     * Copies a picked audio file into private storage keeping the source's
+     * extension; the caller stores [ResolvedAudio.displayName] (original file
+     * name minus extension) as the sound's display name.
+     */
+    fun resolveAudio(source: Uri): ResolvedAudio {
+        val display = queryDisplayName(source)?.trim().takeUnless { it.isNullOrEmpty() } ?: "sound"
+        val ext = display.substringAfterLast('.', "")
+            .takeIf { it.isNotEmpty() && it.length <= 5 && !it.contains('/') }
+            ?.let { ".$it" } ?: ".audio"
         val dir = File(context.filesDir, "sounds").apply { mkdirs() }
-        val out = File(dir, "snd_${UUID.randomUUID()}.audio")
+        val out = File(dir, "snd_${UUID.randomUUID()}$ext")
         context.contentResolver.openInputStream(source)?.use { input ->
             out.outputStream().use { input.copyTo(it) }
         } ?: throw IllegalStateException("Cannot open selected audio")
-        return out
+        return ResolvedAudio(
+            file = out,
+            displayName = display.substringBeforeLast('.').trim().ifEmpty { "sound" },
+        )
     }
 }

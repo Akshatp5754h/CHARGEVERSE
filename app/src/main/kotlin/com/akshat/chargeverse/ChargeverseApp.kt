@@ -4,6 +4,12 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import coil.decode.VideoFrameDecoder
+import com.akshat.chargeverse.automation.AutomationWorkManager
 import com.akshat.chargeverse.core.di.ServiceLocator
 import com.akshat.chargeverse.data.db.SoundItemEntity
 import com.akshat.chargeverse.data.db.SoundRole
@@ -13,7 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
-class ChargeverseApp : Application() {
+class ChargeverseApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
@@ -21,6 +27,21 @@ class ChargeverseApp : Application() {
         createNotificationChannels()
         startBatteryAndAutomation()
     }
+
+    /**
+     * Animated GIF / animated WebP decode everywhere [coil.compose.AsyncImage]
+     * is used. minSdk 29 ≥ 28, so [ImageDecoderDecoder] (animated GIF/WebP)
+     * is always available; [GifDecoder] stays as a fallback and
+     * [VideoFrameDecoder] lets Coil show video frames as stills in grids.
+     */
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .components {
+                add(ImageDecoderDecoder.Factory())
+                add(GifDecoder.Factory())
+                add(VideoFrameDecoder.Factory())
+            }
+            .build()
 
     /** Continuous battery feed + automation engine for the whole process. */
     private fun startBatteryAndAutomation() {
@@ -33,22 +54,34 @@ class ChargeverseApp : Application() {
                 .collect { ServiceLocator.battery.onNewReading(it) }
         }
         ServiceLocator.automation.start()
+
+        // D5: schedule the periodic battery sweep at app start too — boot is
+        // only one entry path; KEEP guards against duplicate work.
+        runCatching { AutomationWorkManager.schedule(this) }
+            .onFailure { android.util.Log.w("ChargeverseApp", "battery sweep scheduling failed: ${it.message}") }
     }
 
     /**
-     * Registers the four original built-in chimes once, and assigns them as
-     * default role sounds when the user has not chosen any.
+     * Registers the four original built-in chimes once, assigns each its role
+     * in `sound_roles`, and assigns them as default role sounds when the user
+     * has not chosen any.
      */
     private suspend fun seedBuiltInSounds() {
         val dao = ServiceLocator.db.soundItemDao()
+        val settings = ServiceLocator.settings
         val existing = dao.observeAll().first()
         val builtIns = existing.filter { it.isBuiltIn }
+        val rolesBySound = dao.allRoleRows().groupBy { it.soundItemId }
         val toSeed = listOf(
             "connect" to SoundRole.CONNECT,
             "disconnect" to SoundRole.DISCONNECT,
             "full" to SoundRole.FULL,
             "low" to SoundRole.LOW,
-        ).filter { (name, role) -> builtIns.none { it.role == role && it.name == name } }
+        ).filter { (name, role) ->
+            builtIns.none { builtin ->
+                builtin.name == name && rolesBySound[builtin.id].orEmpty().any { it.role == role }
+            }
+        }
 
         val ids = mutableMapOf<SoundRole, Long>()
         for ((name, role) in toSeed) {
@@ -56,19 +89,22 @@ class ChargeverseApp : Application() {
                 SoundItemEntity(
                     name = name,
                     uri = "asset://sounds/$name.wav",
-                    role = role,
                     isBuiltIn = true,
                     addedAtMs = System.currentTimeMillis(),
                 )
             )
+            dao.assignRole(id, role)
             ids[role] = id
         }
         // Keep originally-seeded ids for defaults below.
         if (ids.isEmpty()) {
-            builtIns.forEach { if (ids[it.role] == null) ids[it.role] = it.id }
+            builtIns.forEach { builtin ->
+                rolesBySound[builtin.id]?.forEach { roleRow ->
+                    if (ids[roleRow.role] == null) ids[roleRow.role] = builtin.id
+                }
+            }
         }
 
-        val settings = ServiceLocator.settings
         val s = settings.current()
         if (s.connectSoundId <= 0) ids[SoundRole.CONNECT]?.let { settings.setConnectSound(it) }
         if (s.disconnectSoundId <= 0) ids[SoundRole.DISCONNECT]?.let { settings.setDisconnectSound(it) }

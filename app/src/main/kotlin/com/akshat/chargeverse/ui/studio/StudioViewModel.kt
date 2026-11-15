@@ -62,7 +62,15 @@ class StudioViewModel : ViewModel() {
         settings.setActiveProfile(profile.id)
     }
 
+    /**
+     * Deletes a profile; if it was the ACTIVE one, the DataStore pointer is
+     * cleared so the charging experience falls back cleanly.
+     */
     fun delete(profile: AnimationProfileEntity) = viewModelScope.launch {
+        val wasActive = profile.isActive || db.animationProfileDao().byId(profile.id)?.isActive == true
         db.animationProfileDao().delete(profile.id)
+        if (wasActive && settings.current().activeProfileId == profile.id) {
+            settings.setActiveProfile(-1L)
+        }
     }
 }

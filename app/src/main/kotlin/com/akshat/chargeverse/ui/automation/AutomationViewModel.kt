@@ -55,7 +55,8 @@ class AutomationViewModel : ViewModel() {
         db.automationRuleDao().delete(rule.id)
     }
 
+    /** Per-row "test": fires ONLY this rule's action, not the whole trigger. */
     fun fire(rule: AutomationRuleEntity) = viewModelScope.launch {
-        ServiceLocator.automation.executeMatching(rule.trigger, rule.triggerValue)
+        ServiceLocator.automation.executeRule(rule)
     }
 }

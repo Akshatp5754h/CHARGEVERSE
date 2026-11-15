@@ -37,6 +37,7 @@ import com.akshat.chargeverse.core.theme.NeonPurple
 import com.akshat.chargeverse.data.db.AutomationAction
 import com.akshat.chargeverse.data.db.AutomationTrigger
 import com.akshat.chargeverse.ui.components.CvIcon
+import com.akshat.chargeverse.ui.components.ConfirmDeleteDialog
 import com.akshat.chargeverse.ui.components.EmptyState
 import com.akshat.chargeverse.ui.components.GlassCard
 import com.akshat.chargeverse.ui.components.SectionTitle
@@ -45,6 +46,7 @@ import com.akshat.chargeverse.ui.components.SectionTitle
 fun AutomationScreen(viewModel: AutomationViewModel = viewModel()) {
     val state by viewModel.ui.collectAsState()
     var showCreate by remember { mutableStateOf(false) }
+    var deleteCandidate by remember { mutableStateOf<com.akshat.chargeverse.data.db.AutomationRuleEntity?>(null) }
 
     Column(Modifier.fillMaxSize().padding(top = 56.dp)) {
         Column(Modifier.padding(horizontal = 20.dp)) {
@@ -100,12 +102,25 @@ fun AutomationScreen(viewModel: AutomationViewModel = viewModel()) {
                     RuleRow(
                         rule = rule,
                         onToggle = { viewModel.toggle(rule) },
-                        onDelete = { viewModel.delete(rule) },
+                        onDelete = { deleteCandidate = rule },
                         onTest = { viewModel.fire(rule) },
                     )
                 }
             }
         }
+    }
+
+    // D9: rule deletion is confirmed.
+    deleteCandidate?.let { rule ->
+        ConfirmDeleteDialog(
+            title = "Delete rule",
+            message = "The rule “${triggerLabel(rule)}” will stop running. This can't be undone.",
+            onConfirm = {
+                viewModel.delete(rule)
+                deleteCandidate = null
+            },
+            onDismiss = { deleteCandidate = null },
+        )
     }
 }
 
@@ -158,6 +173,13 @@ private fun CreateRuleCard(
                     Text(p.name, style = MaterialTheme.typography.bodyLarge)
                 }
             }
+        } else if (action == AutomationAction.APPLY_PROFILE) {
+            // D21: make the missing-profiles state explicit instead of hiding the picker silently.
+            Text(
+                "No profiles yet — create one in Studio first.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DimText,
+            )
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -38,6 +38,7 @@ import com.akshat.chargeverse.data.db.MediaItemEntity
 import com.akshat.chargeverse.ui.ai.AiHistoryList
 import com.akshat.chargeverse.ui.ai.AiStudioSection
 import com.akshat.chargeverse.ui.components.CvIcon
+import com.akshat.chargeverse.ui.components.ConfirmDeleteDialog
 import com.akshat.chargeverse.ui.components.EmptyState
 import com.akshat.chargeverse.ui.components.GlassCard
 import com.akshat.chargeverse.ui.components.SectionTitle
@@ -45,6 +46,7 @@ import com.akshat.chargeverse.ui.components.SectionTitle
 @Composable
 fun StudioScreen(viewModel: StudioViewModel = viewModel()) {
     val state by viewModel.ui.collectAsState()
+    var deleteCandidate by remember { mutableStateOf<AnimationProfileEntity?>(null) }
 
     val editing = state.editing
     if (editing != null) {
@@ -90,7 +92,7 @@ fun StudioScreen(viewModel: StudioViewModel = viewModel()) {
                     profile = profile,
                     onActivate = { viewModel.activate(profile) },
                     onEdit = { viewModel.openEditor(profile) },
-                    onDelete = { viewModel.delete(profile) },
+                    onDelete = { deleteCandidate = profile },
                 )
             }
         }
@@ -117,6 +119,19 @@ fun StudioScreen(viewModel: StudioViewModel = viewModel()) {
             AiStudioSection()
         }
         item { AiHistoryList() }
+    }
+
+    // D9: profile deletion is confirmed; the underlying animation stays.
+    deleteCandidate?.let { profile ->
+        ConfirmDeleteDialog(
+            title = "Delete profile",
+            message = "Profile “${profile.name}” will be removed. The animation itself stays in your library.",
+            onConfirm = {
+                viewModel.delete(profile)
+                deleteCandidate = null
+            },
+            onDismiss = { deleteCandidate = null },
+        )
     }
 }
 

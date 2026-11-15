@@ -66,14 +66,47 @@ interface SoundItemDao {
     @Query("SELECT * FROM sound_items ORDER BY addedAtMs DESC")
     fun observeAll(): Flow<List<SoundItemEntity>>
 
-    @Query("SELECT * FROM sound_items WHERE role = :role ORDER BY addedAtMs DESC")
+    /** Sounds serving a role, via the sound_roles join table. */
+    @Query(
+        "SELECT si.* FROM sound_items si JOIN sound_roles sr ON sr.soundItemId = si.id " +
+            "WHERE sr.role = :role ORDER BY si.addedAtMs DESC"
+    )
     fun observeByRole(role: SoundRole): Flow<List<SoundItemEntity>>
+
+    @Query(
+        "SELECT si.* FROM sound_items si JOIN sound_roles sr ON sr.soundItemId = si.id " +
+            "WHERE sr.role = :role ORDER BY si.addedAtMs DESC"
+    )
+    suspend fun byRole(role: SoundRole): List<SoundItemEntity>
+
+    /** Every role row, for building per-sound role lists in the UI. */
+    @Query("SELECT * FROM sound_roles")
+    fun observeAllRoles(): Flow<List<SoundRoleEntity>>
+
+    @Query("SELECT role FROM sound_roles WHERE soundItemId = :soundId")
+    suspend fun rolesFor(soundId: Long): List<SoundRole>
+
+    @Query("SELECT * FROM sound_roles")
+    suspend fun allRoleRows(): List<SoundRoleEntity>
 
     @Query("SELECT * FROM sound_items WHERE id = :id")
     suspend fun byId(id: Long): SoundItemEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: SoundItemEntity): Long
+
+    /** Assigns (or replaces) one role for a sound. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun assignRole(assignment: SoundRoleEntity)
+
+    suspend fun assignRole(soundId: Long, role: SoundRole) =
+        assignRole(SoundRoleEntity(soundItemId = soundId, role = role))
+
+    @Query("DELETE FROM sound_roles WHERE soundItemId = :soundId AND role = :role")
+    suspend fun clearRole(soundId: Long, role: SoundRole)
+
+    @Query("DELETE FROM sound_roles WHERE soundItemId = :soundId")
+    suspend fun clearRoles(soundId: Long)
 
     @Query("DELETE FROM sound_items WHERE id = :id")
     suspend fun delete(id: Long)

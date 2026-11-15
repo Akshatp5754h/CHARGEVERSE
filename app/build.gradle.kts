@@ -17,7 +17,6 @@ val keystoreProps = Properties().apply {
 android {
     namespace = "com.akshat.chargeverse"
     compileSdk = 37
-
     defaultConfig {
         applicationId = "com.akshat.chargeverse"
         minSdk = 29
@@ -89,6 +88,13 @@ android {
         checkReleaseBuilds = true
         warningsAsErrors = false
     }
+}
+
+// Room schema export (v2+): commit app/schemas/<version>.json so future
+// migrations can be authored and reviewed against real schema history.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
 }
 
 dependencies {

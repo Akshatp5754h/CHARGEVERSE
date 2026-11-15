@@ -46,6 +46,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.akshat.chargeverse.battery.ChargingEvent
 import com.akshat.chargeverse.core.theme.ElectricGreen
 import com.akshat.chargeverse.core.theme.NeonBlue
@@ -120,8 +124,13 @@ class ChargingActivity : ComponentActivity() {
                 .background(Color((profile?.backgroundHex ?: 0xFF050510).toInt())),
             contentAlignment = Alignment.Center,
         ) {
-            // Layer 1: profile media (video / animated / still)
-            ProfileMediaLayer(media = media, profile = profile, engine = engine)
+            // Layer 1: profile media (video / animated / still / lottie)
+            ProfileMediaLayer(
+                media = media,
+                profile = profile,
+                engine = engine,
+                loop = sessionSettings.loopAnimation,
+            )
 
             // Layer 2: battery overlay (ring + percent), only if profile wants it
             if (profile?.showBatteryOverlay != false) {
@@ -156,6 +165,7 @@ class ChargingActivity : ComponentActivity() {
         media: com.akshat.chargeverse.data.db.MediaItemEntity?,
         profile: com.akshat.chargeverse.data.db.AnimationProfileEntity?,
         engine: ChargingMediaEngine,
+        loop: Boolean,
     ) {
         if (media == null) return
         val scale = profile?.scale ?: 1f
@@ -197,15 +207,42 @@ class ChargingActivity : ComponentActivity() {
                 )
             }
             MediaType.LOTTIE -> {
-                // Lottie composition support arrives with Sprint 7 asset import.
-                AsyncImage(
-                    model = media.uri,
-                    contentDescription = media.title,
-                    contentScale = ContentScale.Fit,
+                LottieMedia(
+                    media = media,
+                    loop = loop,
+                    speed = profile?.playbackSpeed ?: 1f,
                     modifier = transform,
                 )
             }
         }
+    }
+
+    /** Real Lottie playback: infinite when looping, one pass otherwise (D8). */
+    @Composable
+    private fun LottieMedia(
+        media: com.akshat.chargeverse.data.db.MediaItemEntity,
+        loop: Boolean,
+        speed: Float,
+        modifier: Modifier,
+    ) {
+        val spec = remember(media.uri) {
+            val path = android.net.Uri.parse(media.uri).path
+            if (path != null && media.uri.startsWith("file://")) {
+                LottieCompositionSpec.File(path)
+            } else {
+                LottieCompositionSpec.Url(media.uri)
+            }
+        }
+        val composition by rememberLottieComposition(spec)
+        LottieAnimation(
+            composition = composition,
+            isPlaying = true,
+            speed = speed,
+            iterations = if (loop) LottieConstants.IterateForever else 1,
+            alignment = Alignment.Center,
+            contentScale = ContentScale.Fit,
+            modifier = modifier,
+        )
     }
 
     @Composable

@@ -14,10 +14,8 @@ import com.akshat.chargeverse.sound.SoundEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 
 /**
  * Rules engine: reacts to charging events and percentage thresholds with
@@ -48,15 +46,16 @@ class AutomationEngine(
     }
 
     private suspend fun onEvent(event: com.akshat.chargeverse.battery.ChargingEvent) {
+        // CHARGER_* rules fire on the plug/unplug event itself.
         val trigger = when (event) {
             com.akshat.chargeverse.battery.ChargingEvent.CONNECTED -> AutomationTrigger.CHARGER_CONNECTED
             com.akshat.chargeverse.battery.ChargingEvent.DISCONNECTED -> AutomationTrigger.CHARGER_DISCONNECTED
-            com.akshat.chargeverse.battery.ChargingEvent.FULL -> AutomationTrigger.FULL_BATTERY
-            com.akshat.chargeverse.battery.ChargingEvent.LOW -> AutomationTrigger.LOW_BATTERY
+            else -> null
         }
-        executeMatching(trigger, triggerValue = 0)
+        trigger?.let { executeMatching(it, triggerValue = 0) }
 
-        // Built-in alert behavior, governed by settings (not rules):
+        // FULL/LOW rules are transition-based (see onReading) — the events only
+        // drive the built-in alert behavior, governed by settings (not rules):
         val s = settings.current()
         when (event) {
             com.akshat.chargeverse.battery.ChargingEvent.FULL ->
@@ -70,35 +69,66 @@ class AutomationEngine(
     /** Public entry for WorkManager sweeps (percentage rules without live flow). */
     suspend fun onReadingForWorker(reading: BatteryReading) = onReading(reading)
 
+    /**
+     * Evaluates every transition-based rule against the fresh reading using
+     * its persisted arming state: a rule fires when its condition becomes
+     * true (crossing), stays disarmed while the condition holds, and re-arms
+     * when the condition clears.
+     */
     private suspend fun onReading(reading: BatteryReading) {
         if (reading.levelPercent < 0) return
         val pct = reading.levelPercent
-        executeMatching(AutomationTrigger.PERCENT_ABOVE, triggerValue = pct)
-        executeMatching(AutomationTrigger.PERCENT_BELOW, triggerValue = pct)
-    }
+        val lowThreshold = settings.current().lowBatteryThreshold
 
-    /** Runs every enabled rule whose trigger matches; one-shot triggers mark lastFiredMs. */
-    suspend fun executeMatching(trigger: AutomationTrigger, triggerValue: Int) {
-        val rules = ruleDao.enabledRules().filter { it.trigger == trigger }
+        val rules = ruleDao.enabledRules().filter {
+            it.trigger == AutomationTrigger.PERCENT_ABOVE ||
+                it.trigger == AutomationTrigger.PERCENT_BELOW ||
+                it.trigger == AutomationTrigger.FULL_BATTERY ||
+                it.trigger == AutomationTrigger.LOW_BATTERY
+        }
         for (rule in rules) {
-            val matches = when (trigger) {
-                AutomationTrigger.PERCENT_ABOVE -> triggerValue > rule.triggerValue
-                AutomationTrigger.PERCENT_BELOW -> triggerValue < rule.triggerValue
-                else -> true
-            }
-            val isOneShot = trigger == AutomationTrigger.FULL_BATTERY ||
-                trigger == AutomationTrigger.LOW_BATTERY ||
-                trigger == AutomationTrigger.PERCENT_ABOVE ||
-                trigger == AutomationTrigger.PERCENT_BELOW
-            if (!matches) continue
-            if (isOneShot && rule.lastFiredMs != null) continue
+            val decision = when (rule.trigger) {
+                AutomationTrigger.PERCENT_ABOVE ->
+                    RuleArming.crossing(rule.armed, pct > rule.triggerValue)
+                AutomationTrigger.PERCENT_BELOW ->
+                    RuleArming.crossing(rule.armed, pct < rule.triggerValue)
+                AutomationTrigger.FULL_BATTERY ->
+                    RuleArming.crossing(rule.armed, reading.isFull)
+                AutomationTrigger.LOW_BATTERY ->
+                    // LOW fires at/below the user threshold; re-arms only after
+                    // the battery recovers above threshold + 5 (like the
+                    // built-in low alert), charging or not.
+                    RuleArming.low(
+                        armed = rule.armed,
+                        lowNow = pct <= lowThreshold,
+                        reArmNow = pct > lowThreshold + 5,
+                    )
+                else -> null
+            } ?: continue
 
-            execute(rule)
-            if (isOneShot) {
-                ruleDao.update(rule.copy(lastFiredMs = System.currentTimeMillis()))
+            if (decision.fire) execute(rule)
+            if (decision.armed != rule.armed) {
+                ruleDao.update(
+                    rule.copy(
+                        armed = decision.armed,
+                        lastFiredMs = if (decision.fire) System.currentTimeMillis() else rule.lastFiredMs,
+                    )
+                )
             }
         }
     }
+
+    /**
+     * Runs every enabled CHARGER_* rule whose trigger matches (events are
+     * inherently one-shot; no arming needed).
+     */
+    suspend fun executeMatching(trigger: AutomationTrigger, triggerValue: Int) {
+        val rules = ruleDao.enabledRules().filter { it.trigger == trigger }
+        for (rule in rules) execute(rule)
+    }
+
+    /** Manual "test" from the automation UI: executes exactly this rule's action. */
+    suspend fun executeRule(rule: AutomationRuleEntity) = execute(rule)
 
     private suspend fun execute(rule: AutomationRuleEntity) {
         when (rule.action) {
@@ -126,10 +156,42 @@ class AutomationEngine(
         }
         val item = if (configuredId > 0) soundDao.byId(configuredId) else null
         val uri = item?.uri
-            ?: soundDao.observeByRole(role).first().firstOrNull()?.uri
+            ?: soundDao.byRole(role).firstOrNull()?.uri
             ?: return
         soundEngine.muted = s.masterMuted
         soundEngine.volume = s.soundVolume
         soundEngine.play(android.net.Uri.parse(uri), loop = false)
+    }
+}
+
+/**
+ * Pure arming decisions for transition-based automation rules (unit-tested,
+ * no Android/Room dependencies).
+ */
+object RuleArming {
+
+    data class Decision(val fire: Boolean, val armed: Boolean)
+
+    /**
+     * Fires exactly once per crossing: when [condition] becomes true while
+     * [armed], the rule fires and disarms; while the condition stays true it
+     * stays disarmed; when the condition becomes false again it re-arms.
+     * Used by PERCENT_ABOVE / PERCENT_BELOW and FULL_BATTERY (re-arms after
+     * leaving full).
+     */
+    fun crossing(armed: Boolean, condition: Boolean): Decision = when {
+        armed && condition -> Decision(fire = true, armed = false)
+        !armed && !condition -> Decision(fire = false, armed = true)
+        else -> Decision(fire = false, armed = armed)
+    }
+
+    /**
+     * LOW_BATTERY: fires when the battery is low; re-arms only once the
+     * battery has recovered ([reArmNow], threshold + 5).
+     */
+    fun low(armed: Boolean, lowNow: Boolean, reArmNow: Boolean): Decision = when {
+        armed && lowNow -> Decision(fire = true, armed = false)
+        !armed && reArmNow -> Decision(fire = false, armed = true)
+        else -> Decision(fire = false, armed = armed)
     }
 }

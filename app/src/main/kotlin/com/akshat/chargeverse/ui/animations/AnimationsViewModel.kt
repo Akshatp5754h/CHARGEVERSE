@@ -3,7 +3,6 @@ package com.akshat.chargeverse.ui.animations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.akshat.chargeverse.core.di.ServiceLocator
-import com.akshat.chargeverse.core.media.MediaResolver
 import com.akshat.chargeverse.data.db.AnimationCategory
 import com.akshat.chargeverse.data.db.MediaItemEntity
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +26,8 @@ data class AnimationsUiState(
 class AnimationsViewModel : ViewModel() {
 
     private val db = ServiceLocator.db
-    private val resolver = MediaResolver(ServiceLocator.app)
+    private val settings = ServiceLocator.settings
+    private val resolver = ServiceLocator.mediaResolver
 
     private val selectedCategory = MutableStateFlow<AnimationCategory?>(null)
     private val importing = MutableStateFlow(false)
@@ -49,6 +49,19 @@ class AnimationsViewModel : ViewModel() {
             pendingUri = pending,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AnimationsUiState())
+
+    init {
+        // D14: if the active profile vanishes (e.g. FK cascade after its media
+        // was deleted), clear the stale DataStore pointer.
+        viewModelScope.launch {
+            db.animationProfileDao().observeAll().collect { profiles ->
+                val activeId = settings.current().activeProfileId
+                if (activeId > 0 && profiles.none { it.id == activeId }) {
+                    settings.setActiveProfile(-1L)
+                }
+            }
+        }
+    }
 
     fun selectCategory(category: AnimationCategory?) {
         selectedCategory.value = category
@@ -89,9 +102,21 @@ class AnimationsViewModel : ViewModel() {
         importing.value = false
     }
 
+    /**
+     * Deletes a media item: removes its private copy; the DB FK cascade then
+     * removes any profiles referencing it (D14), and if the ACTIVE profile
+     * was among them the active pointers are cleared so the charging
+     * experience never points at a missing profile.
+     */
     fun delete(item: MediaItemEntity) = viewModelScope.launch {
+        val referencingProfiles = db.animationProfileDao().all().filter { it.mediaItemId == item.id }
+        val activeRemoved = referencingProfiles.any { it.isActive }
         withContext(Dispatchers.IO) { resolver.deleteCopy(item.uri) }
         db.mediaItemDao().delete(item.id)
+        if (activeRemoved) {
+            db.animationProfileDao().clearActive()
+            settings.setActiveProfile(-1L)
+        }
     }
 
     fun dismissError() {
