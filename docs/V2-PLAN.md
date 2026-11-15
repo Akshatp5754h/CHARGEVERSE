@@ -10,7 +10,7 @@ Branch: `feature/cinematic-v2` · Base: `develop@32bb3de` · Tag preserved: `v1.
 | DEF | Functional defect batch D1–D21 | ✅ DONE — `3e20180` (Room v2 migration, roles, GIF/WebP, arming, service hardening, confirm dialogs) |
 | S2 | Cinematic home & navigation redesign | queued |
 | S3 | Animation gallery & playback redesign | queued |
-| S4 | Full-length charging media experience | queued |
+| S4 | Full-length charging media experience | ✅ DONE — fit/fill (schema v3), overlay system, live profile switching, first-frame fades, error recovery |
 | S5 | Audio engine & sound studio | queued |
 | S6 | Animation editor & profile upgrades | queued |
 | S7 | Content pack architecture (manifests, downloads, checksums) | queued |
@@ -51,10 +51,10 @@ plan; do not call it 2.0.0 prematurely.
 | D22 | Radio unselected dot near-invisible 0x33FFFFFF (`AutomationScreen.kt:199-207`) | S1 | open |
 | D23 | `Color.Black` on gradient Generate button (`AiStudioScreen.kt:105`) ≈4.0:1 borderline | S1 | open |
 | D24 | Hardcoded Color.White/Black in ~8 UI spots bypass the semantic palette | S1 | open |
-| D25 | Dead settings keys: `onboarding_done`, `overlay_mode`; dead `setOverlayMode` | S10/S11 | open |
+| D25 | Dead settings keys: `onboarding_done`, `overlay_mode`; dead `setOverlayMode` | S10/S11 | partial — `overlay_mode` now drives the charging overlay CSV (S4); `onboarding_done` remains S10/S11 |
 | D26 | No audio focus / ducking; session audio overlaps system audio | S5 | open |
 | D27 | Downloads unbound growth in media dir (AI output, imports) | S7 | open |
-| D28 | Charging text overlay offset math inconsistent with media layer scale (`ChargingActivity.kt:144-147` vs :170-171) | S4 | open |
+| D28 | Charging text overlay offset math inconsistent with media layer scale (`ChargingActivity.kt:144-147` vs :170-171) | S4 | ✅ DONE — text overlay placed via a layout modifier using the media layer's fraction-of-size convention (positive = down) |
 
 ## S0 audit conclusions (preserved from exploration agent)
 

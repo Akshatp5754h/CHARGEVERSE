@@ -31,6 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.akshat.chargeverse.core.theme.DimText
 import com.akshat.chargeverse.core.theme.GlassFill
 import com.akshat.chargeverse.core.theme.NeonBlue
+import com.akshat.chargeverse.data.prefs.ChargingOverlay
 import com.akshat.chargeverse.ui.components.GlassCard
 import com.akshat.chargeverse.ui.components.SectionTitle
 
@@ -72,6 +73,34 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             SwitchRow("Loop animations", s.loopAnimation) { viewModel.setLoop(it) }
             SwitchRow("Pick a random profile each charge", s.randomAnimationEnabled) { viewModel.setRandom(it) }
             SwitchRow("Haptic pulse on connect", s.hapticsEnabled) { viewModel.setHaptics(it) }
+        }
+        Spacer(Modifier.height(14.dp))
+
+        // v2/S4: the overlay_mode CSV — which extras render on the charging
+        // screen alongside the media.
+        SectionTitle("Charging experience overlays")
+        GlassCard {
+            Text(
+                "Shown on the charging screen during every session.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DimText,
+            )
+            Spacer(Modifier.height(8.dp))
+            SwitchRow("Clock", ChargingOverlay.CLOCK in s.chargingOverlays) {
+                viewModel.setOverlayEnabled(ChargingOverlay.CLOCK, it)
+            }
+            SwitchRow("Date", ChargingOverlay.DATE in s.chargingOverlays) {
+                viewModel.setOverlayEnabled(ChargingOverlay.DATE, it)
+            }
+            SwitchRow("Charging status", ChargingOverlay.STATUS in s.chargingOverlays) {
+                viewModel.setOverlayEnabled(ChargingOverlay.STATUS, it)
+            }
+            SwitchRow("Temperature", ChargingOverlay.TEMP in s.chargingOverlays) {
+                viewModel.setOverlayEnabled(ChargingOverlay.TEMP, it)
+            }
+            SwitchRow("Battery overlay", ChargingOverlay.BATTERY in s.chargingOverlays) {
+                viewModel.setOverlayEnabled(ChargingOverlay.BATTERY, it)
+            }
         }
         Spacer(Modifier.height(14.dp))
 

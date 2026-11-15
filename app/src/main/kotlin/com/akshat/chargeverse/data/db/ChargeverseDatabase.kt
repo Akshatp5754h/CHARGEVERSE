@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutomationRuleEntity::class,
         AiHistoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class ChargeverseDatabase : RoomDatabase() {
@@ -142,9 +142,23 @@ abstract class ChargeverseDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v2→v3 (S4): animation_profiles gains `fillMode` — true = FILL/cover
+         * (the v1 ZOOM behaviour), false = FIT/contain. Plain additive column
+         * with a default, so every existing row keeps the v1 look and no
+         * table rebuild is needed.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `animation_profiles` ADD COLUMN `fillMode` INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
         fun build(context: Context): ChargeverseDatabase =
             Room.databaseBuilder(context, ChargeverseDatabase::class.java, NAME)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .addCallback(object : RoomDatabase.Callback() {
                     /** FKs (CASCADE deletes) only hold while the pragma is on. */
                     override fun onOpen(db: SupportSQLiteDatabase) {

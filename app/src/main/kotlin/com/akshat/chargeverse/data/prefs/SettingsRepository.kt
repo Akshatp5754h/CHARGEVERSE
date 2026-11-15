@@ -16,14 +16,51 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "chargeverse_settings")
 
-/** All persisted CHARGEVERSE settings. */
+/** Overlay elements that can be rendered on the charging experience (v2/S4). */
+enum class ChargingOverlay { CLOCK, DATE, STATUS, TEMP, BATTERY }
+
+/**
+ * Parse/serialize contract for the DataStore `overlay_mode` key (v2/S4, fixes
+ * the dead-key defect D25): a comma-separated subset of the lowercase
+ * [ChargingOverlay] names, e.g. `"clock,status,battery"`.
+ *
+ * Parsing trims whitespace, is case-insensitive, drops unknown and duplicate
+ * entries (first occurrence wins) and treats `null` as the default set — a
+ * missing key means "never configured". Serialization always emits the
+ * canonical declaration order, so `serialize(parse(x))` round-trips stable.
+ */
+object OverlayConfig {
+    const val SEPARATOR = ","
+
+    /** Ship default: battery ring + charging status, matching v1's look. */
+    val DEFAULT: Set<ChargingOverlay> = linkedSetOf(ChargingOverlay.BATTERY, ChargingOverlay.STATUS)
+
+    fun parse(raw: String?): Set<ChargingOverlay> {
+        if (raw == null) return DEFAULT
+        if (raw.isBlank()) return emptySet()
+        return raw.split(SEPARATOR)
+            .mapNotNull { token ->
+                val name = token.trim().lowercase()
+                ChargingOverlay.entries.firstOrNull { it.name.lowercase() == name }
+            }
+            .toCollection(LinkedHashSet())
+    }
+
+    fun serialize(overlays: Set<ChargingOverlay>): String =
+        ChargingOverlay.entries
+            .filter { it in overlays }
+            .joinToString(SEPARATOR) { it.name.lowercase() }
+}
+
+/** All persisted CHARGERVERSE settings. */
 data class CvSettings(
     val activeProfileId: Long = -1L,
     val randomAnimationEnabled: Boolean = false,
     val loopAnimation: Boolean = true,
     val showOnChargerConnect: Boolean = true,
     val keepScreenOnWhileCharging: Boolean = true,
-    val overlayModeEnabled: Boolean = false,
+    /** Enabled charging-screen overlays, from the `overlay_mode` CSV key. */
+    val chargingOverlays: Set<ChargingOverlay> = OverlayConfig.DEFAULT,
     val hapticsEnabled: Boolean = true,
     val masterMuted: Boolean = false,
     val soundVolume: Float = 0.8f,
@@ -48,7 +85,7 @@ class SettingsRepository(private val context: Context) {
         val LOOP_ANIMATION = booleanPreferencesKey("loop_animation")
         val SHOW_ON_CONNECT = booleanPreferencesKey("show_on_connect")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
-        val OVERLAY_MODE = booleanPreferencesKey("overlay_mode")
+        val OVERLAY_MODE = stringPreferencesKey("overlay_mode")
         val HAPTICS = booleanPreferencesKey("haptics")
         val MASTER_MUTED = booleanPreferencesKey("master_muted")
         val SOUND_VOLUME = floatPreferencesKey("sound_volume")
@@ -72,7 +109,7 @@ class SettingsRepository(private val context: Context) {
             loopAnimation = p[Keys.LOOP_ANIMATION] ?: true,
             showOnChargerConnect = p[Keys.SHOW_ON_CONNECT] ?: true,
             keepScreenOnWhileCharging = p[Keys.KEEP_SCREEN_ON] ?: true,
-            overlayModeEnabled = p[Keys.OVERLAY_MODE] ?: false,
+            chargingOverlays = OverlayConfig.parse(p[Keys.OVERLAY_MODE]),
             hapticsEnabled = p[Keys.HAPTICS] ?: true,
             masterMuted = p[Keys.MASTER_MUTED] ?: false,
             soundVolume = p[Keys.SOUND_VOLUME] ?: 0.8f,
@@ -95,7 +132,19 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLoopAnimation(v: Boolean) = context.dataStore.edit { it[Keys.LOOP_ANIMATION] = v }
     suspend fun setShowOnConnect(v: Boolean) = context.dataStore.edit { it[Keys.SHOW_ON_CONNECT] = v }
     suspend fun setKeepScreenOn(v: Boolean) = context.dataStore.edit { it[Keys.KEEP_SCREEN_ON] = v }
-    suspend fun setOverlayMode(v: Boolean) = context.dataStore.edit { it[Keys.OVERLAY_MODE] = v }
+
+    /**
+     * Adds or removes one overlay from the `overlay_mode` CSV atomically
+     * (v2/S4). Reads the current value inside the edit so concurrent toggles
+     * of different overlays cannot overwrite each other.
+     */
+    suspend fun setOverlayEnabled(overlay: ChargingOverlay, enabled: Boolean) =
+        context.dataStore.edit { p ->
+            val current = OverlayConfig.parse(p[Keys.OVERLAY_MODE])
+            val next = if (enabled) current + overlay else current - overlay
+            p[Keys.OVERLAY_MODE] = OverlayConfig.serialize(next)
+        }
+
     suspend fun setHaptics(v: Boolean) = context.dataStore.edit { it[Keys.HAPTICS] = v }
     suspend fun setMasterMuted(v: Boolean) = context.dataStore.edit { it[Keys.MASTER_MUTED] = v }
     suspend fun setSoundVolume(v: Float) = context.dataStore.edit { it[Keys.SOUND_VOLUME] = v }

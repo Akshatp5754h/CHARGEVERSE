@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.akshat.chargeverse.core.di.ServiceLocator
 import com.akshat.chargeverse.core.media.MediaResolver
+import com.akshat.chargeverse.data.prefs.ChargingOverlay
 import com.akshat.chargeverse.data.prefs.CvSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,7 +41,11 @@ class SettingsViewModel : ViewModel() {
 
     fun setShowOnConnect(v: Boolean) = viewModelScope.launch { settings.setShowOnConnect(v) }
     fun setKeepScreenOn(v: Boolean) = viewModelScope.launch { settings.setKeepScreenOn(v) }
-    fun setOverlayMode(v: Boolean) = viewModelScope.launch { settings.setOverlayMode(v) }
+
+    /** v2/S4: one overlay toggle in the `overlay_mode` CSV. */
+    fun setOverlayEnabled(overlay: ChargingOverlay, enabled: Boolean) =
+        viewModelScope.launch { settings.setOverlayEnabled(overlay, enabled) }
+
     fun setHaptics(v: Boolean) = viewModelScope.launch { settings.setHaptics(v) }
     fun setLoop(v: Boolean) = viewModelScope.launch { settings.setLoopAnimation(v) }
     fun setRandom(v: Boolean) = viewModelScope.launch { settings.setRandomAnimation(v) }

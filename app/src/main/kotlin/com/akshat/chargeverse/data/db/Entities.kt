@@ -58,6 +58,13 @@ data class AnimationProfileEntity(
     val offsetX: Float = 0f,
     val offsetY: Float = 0f,
     val playbackSpeed: Float = 1f,
+    /**
+     * How the media fills the screen (v2/S4, schema column added in
+     * MIGRATION_2_3). true = FILL/cover (crops edges, the v1 ZOOM behaviour),
+     * false = FIT/contain (whole frame visible, letterboxed). Applies to the
+     * video resize mode and the Coil/Lottie content scale alike.
+     */
+    @ColumnInfo(defaultValue = "1") val fillMode: Boolean = true,
     val backgroundHex: Long = 0xFF050510,
     val textOverlay: String = "",
     val showBatteryOverlay: Boolean = true,
